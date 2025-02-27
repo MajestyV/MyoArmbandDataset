@@ -125,7 +125,7 @@ def shift_electrodes(examples: list, labels: list) -> tuple[list, list]:
         Y_example.append(labels[k])
     return X_example, Y_example
 
-def read_single_data(path: str, subject: str) -> tuple:
+def read_single_data(path: str, subject: str) -> tuple[list,list]:
     '''
     读取单个测试目标的数据
     '''
