@@ -115,5 +115,5 @@ def read_data(path):
         list_dataset.append(examples)
         list_labels.append(labels)
 
-    print "Finished Reading Data"
+    print("Finished Reading Data")
     return list_dataset, list_labels

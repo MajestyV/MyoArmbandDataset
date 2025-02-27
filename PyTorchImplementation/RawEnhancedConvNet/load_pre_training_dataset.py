@@ -1,22 +1,48 @@
+# 设置项目的默认路径
+import os
+import sys
+from email.policy import default
+
+script_path = os.path.abspath(os.path.join(os.getcwd(), '..'))
+project_path = os.path.abspath(os.path.join(script_path, '..'))  # 获取项目路径
+sys.path.append(project_path)  # 添加路径到系统路径中
+
+default_dataset_path = os.path.abspath(os.path.join(project_path, 'PreTrainingDataset'))  # 获取默认数据集路径
+
+################################################# 以下是代码的正是部分 #####################################################
+
 import numpy as np
 from scipy import signal
 
+# 可视化模块
+import matplotlib.pyplot as plt
+
+###################################################### 分割线 ###########################################################
+
+alternative_dataset_dir_dict = {'SYSU': 'F:/PycharmProjects/MyoArmbandDataset/PreTrainingDataset'}
+
+###################################################### 分割线 ###########################################################
+
 number_of_vector_per_example = 52
-number_of_canals = 8
+number_of_canals = 8  # canal 即 channel
 number_of_classes = 7
 size_non_overlap = 5
 
-def format_data_to_train(vector_to_format):
+def format_data_to_train(vector_to_format: np.ndarray) -> np.ndarray:
     dataset_example_formatted = []
-    example = []
+    # 最新版本的python不支持不同维度的数组/列表直接的 bool 逻辑判断，所以用None替代[]
+    # 否则会报 'operands could not be broadcast together with shapes (8,52) (0,)' 之类的错
+    example = None  # 初始化example变量
     emg_vector = []
     for value in vector_to_format:
+
         emg_vector.append(value)
         if (len(emg_vector) >= 8):
-            if (example == []):
-                example = emg_vector
+            if example is None:
+                example = emg_vector  # 初始化example变量
             else:
-                example = np.row_stack((example, emg_vector))
+                example = np.vstack((example, emg_vector))
+
             emg_vector = []
             if (len(example) >= number_of_vector_per_example):
                 example = example.transpose()
@@ -43,22 +69,22 @@ def butter_highpass_filter(data, cutoff, fs, order=3):
     y = signal.lfilter(b, a, data)
     return y
 
-def shift_electrodes(examples, labels):
+def shift_electrodes(examples: list, labels: list) -> tuple[list, list]:
     index_normal_class = [1, 2, 6, 2]  # The normal activation of the electrodes.
     class_mean = []
     # For the classes that are relatively invariant to the highest canals activation, we get on average for a
     # subject the most active canals for those classes
-    for classe in range(3, 7):
+    for classe in range(3, 7):  # classe =  3, 4, 5, 6
         X_example = []
         Y_example = []
         for k in range(len(examples)):
             X_example.extend(examples[k])
             Y_example.extend(labels[k])
 
-        cwt_add = []
+        cwt_add = None  # 初始化cwt_add变量（最新版本的python不支持不同维度的数组/列表直接的 bool 逻辑判断，所以用None替代[]）
         for j in range(len(X_example)):
             if Y_example[j] == classe:
-                if cwt_add == []:
+                if cwt_add is None:
                     cwt_add = np.array(X_example[j][0])
                 else:
                     cwt_add += np.array(X_example[j][0])
@@ -99,19 +125,52 @@ def shift_electrodes(examples, labels):
         Y_example.append(labels[k])
     return X_example, Y_example
 
+def read_single_data(path: str, subject: str) -> tuple:
+    '''
+    读取单个测试目标的数据
+    '''
+    print("Reading Data")
 
-def read_data(path):
+    labels = []
+    examples = []
+    for i in range(number_of_classes * 4):
+
+        datafile = f'{path}/{subject}'+'/training0/classe_%d.dat' % i  # 数据文件地址
+
+        data_read_from_file = np.fromfile(datafile, dtype=np.int16)
+        data_read_from_file = np.array(data_read_from_file, dtype=np.float32)
+
+        dataset_example = format_data_to_train(data_read_from_file)
+        examples.append(dataset_example)
+        labels.append((i % number_of_classes) + np.zeros(dataset_example.shape[0]))
+
+    examples, labels = shift_electrodes(examples, labels)
+
+    print("Finished Reading Data")
+    return examples, labels
+
+def read_data(path: str, num_male: int=12, num_female: int=7) -> tuple[list,list]:
+    '''
+    数据读取函数
+    :param num_male: number of male participants
+    :param num_female: number of female participants
+    '''
+
     print("Reading Data")
     list_dataset = []
     list_labels = []
 
-    for candidate in range(12):
+    for candidate in range(num_male):
         labels = []
         examples = []
         for i in range(number_of_classes * 4):
-            data_read_from_file = np.fromfile(path+'/Male'+str(candidate)+'/training0/classe_%d.dat' % i,
-                                              dtype=np.int16)
+
+            datafile = path+'/Male'+str(candidate)+'/training0/classe_%d.dat' % i  # 数据文件地址
+            print(datafile)
+
+            data_read_from_file = np.fromfile(datafile, dtype=np.int16)
             data_read_from_file = np.array(data_read_from_file, dtype=np.float32)
+
             dataset_example = format_data_to_train(data_read_from_file)
             examples.append(dataset_example)
             labels.append((i % number_of_classes) + np.zeros(dataset_example.shape[0]))
@@ -119,13 +178,16 @@ def read_data(path):
         list_dataset.append(examples)
         list_labels.append(labels)
 
-    for candidate in range(7):
+    for candidate in range(num_female):
         labels = []
         examples = []
         for i in range(number_of_classes * 4):
             i=0
-            data_read_from_file = np.fromfile(path + '/Female' + str(candidate) + '/training0/classe_%d.dat' % i,
-                                              dtype=np.int16)
+
+            datafile = path + '/Female' + str(candidate) + '/training0/classe_%d.dat' % i  # 数据文件地址
+            print(datafile)
+
+            data_read_from_file = np.fromfile(datafile, dtype=np.int16)
             data_read_from_file = np.array(data_read_from_file, dtype=np.float32)
             dataset_example = format_data_to_train(data_read_from_file)
             examples.append(dataset_example)
@@ -136,3 +198,35 @@ def read_data(path):
 
     print("Finished Reading Data")
     return list_dataset, list_labels
+
+if __name__ == '__main__':
+    # example, label = read_data(f'{default_dataset_path}/Female0/training0/classe_0.dat')
+
+    example, label = read_data(default_dataset_path)
+
+    # example, label = read_single_data(default_dataset_path, 'Female0')
+
+    # for i in range(len(label)):
+        # print(np.array(label[i]).shape)
+
+    # for j in range(len(label[i])):
+    # print(f'The shape of this label is: {np.array(label[0]).shape}')
+    print(len(label[0]))
+    print(len(label[0][0]))
+
+    print(f'The length of example is: {len(example)}; and the length of label is: {len(label)}.')
+    print(f'The length of element of example is: {len(example[0])}; and the length of element of  label is: {len(label[0])}.')
+
+    print(np.array(example[0][8]).shape)
+
+    data = np.array(example[0][0])[:,0,0,0]
+    print(data)
+
+    plt.plot(data)
+    plt.show(block=True)
+
+    # print('\n')
+
+    # print(example)
+
+    # print(label)
