@@ -202,31 +202,41 @@ def read_data(path: str, num_male: int=12, num_female: int=7) -> tuple[list,list
 if __name__ == '__main__':
     # example, label = read_data(f'{default_dataset_path}/Female0/training0/classe_0.dat')
 
-    example, label = read_data(default_dataset_path)
+    mode = 'single'
 
-    # example, label = read_single_data(default_dataset_path, 'Female0')
+    if mode == 'single':
 
-    # for i in range(len(label)):
-        # print(np.array(label[i]).shape)
+        example, label = read_single_data(default_dataset_path, 'Female0')
 
-    # for j in range(len(label[i])):
-    # print(f'The shape of this label is: {np.array(label[0]).shape}')
-    print(len(label[0]))
-    print(len(label[0][0]))
+        print(len(label))
+        print(len(label[0]))
 
-    print(f'The length of example is: {len(example)}; and the length of label is: {len(label)}.')
-    print(f'The length of element of example is: {len(example[0])}; and the length of element of  label is: {len(label[0])}.')
+        print(f'The length of example is: {len(example)}; and the length of label is: {len(label)}.')
 
-    print(np.array(example[0][8]).shape)
+        print(np.array(example[0]).shape)
 
-    data = np.array(example[0][0])[:,0,0,0]
-    print(data)
+        data = np.array(example[0])[:, 0, 0, 0]
 
-    plt.plot(data)
-    plt.show(block=True)
+        plt.plot(data)
+        plt.show(block=True)
 
-    # print('\n')
+    elif mode == 'multiple':
 
-    # print(example)
+        example, label = read_data(default_dataset_path)
 
-    # print(label)
+        print(len(label[0]))
+        print(len(label[0][0]))
+
+        print(f'The length of example is: {len(example)}; and the length of label is: {len(label)}.')
+        print(f'The length of element of example is: {len(example[0])}; and the length of element of  label is: {len(label[0])}.')
+
+        print(np.array(example[0][8]).shape)
+
+        data = np.array(example[0][0])[:,0,0,0]
+        print(data)
+
+        plt.plot(data)
+        plt.show(block=True)
+
+    else:
+        print('Invalid mode!')
