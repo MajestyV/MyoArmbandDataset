@@ -1,4 +1,4 @@
-\# 设置项目的默认路径
+# 设置项目的默认路径
 import os
 import sys
 from email.policy import default
@@ -14,18 +14,25 @@ default_dataset_path = os.path.abspath(os.path.join(project_path, 'PreTrainingDa
 import numpy as np
 from scipy import signal
 
+# from typing import Iterable  # 变量声明
+
 # 可视化模块
 import matplotlib.pyplot as plt
 
 ###################################################### 分割线 ###########################################################
 
+working_loc = 'Lingjiang'
+
 alternative_dataset_dir_dict = {'SYSU': 'F:/PycharmProjects/MyoArmbandDataset/PreTrainingDataset'}
+
+saving_dir_dict = {'Lingjiang': 'C:/Users/DELL/Desktop/sEMG_dataset/working_dir'}
 
 ###################################################### 分割线 ###########################################################
 
 number_of_vector_per_example = 52
 number_of_canals = 8  # canal 即 channel
 number_of_classes = 7
+number_of_cycles = 4
 size_non_overlap = 5
 
 def format_data_to_train(vector_to_format: np.ndarray) -> np.ndarray:
@@ -125,54 +132,6 @@ def shift_electrodes(examples: list, labels: list) -> tuple[list, list]:
         Y_example.append(labels[k])
     return X_example, Y_example
 
-def read_single_data(path: str, subject: str) -> tuple[list,list]:
-    '''
-    读取单个测试目标的数据
-    '''
-    print("Reading Data")
-
-    labels = []
-    examples = []
-    for i in range(number_of_classes * 4):
-
-        datafile = f'{path}/{subject}'+'/training0/classe_%d.dat' % i  # 数据文件地址
-
-        data_read_from_file = np.fromfile(datafile, dtype=np.int16)
-        data_read_from_file = np.array(data_read_from_file, dtype=np.float32)
-
-        dataset_example = format_data_to_train(data_read_from_file)
-        examples.append(dataset_example)
-        labels.append((i % number_of_classes) + np.zeros(dataset_example.shape[0]))
-
-    examples, labels = shift_electrodes(examples, labels)
-
-    print("Finished Reading Data")
-    return examples, labels
-
-def read_single_data_special(path: str, subject: str) -> tuple[tuple[list,list],tuple[list,list]]:
-    '''
-    读取单个测试目标的数据
-    '''
-    print("Reading Data")
-
-    labels = []
-    examples = []
-    for i in range(number_of_classes * 4):
-
-        datafile = f'{path}/{subject}'+'/training0/classe_%d.dat' % i  # 数据文件地址
-
-        data_read_from_file = np.fromfile(datafile, dtype=np.int16)
-        data_read_from_file = np.array(data_read_from_file, dtype=np.float32)
-
-        dataset_example = format_data_to_train(data_read_from_file)
-        examples.append(dataset_example)
-        labels.append((i % number_of_classes) + np.zeros(dataset_example.shape[0]))
-
-    examples_shifted, labels_shifted = shift_electrodes(examples, labels)
-
-    print("Finished Reading Data")
-    return (examples, labels), (examples_shifted, labels_shifted)
-
 def read_data(path: str, num_male: int=12, num_female: int=7) -> tuple[list,list]:
     '''
     数据读取函数
@@ -223,19 +182,138 @@ def read_data(path: str, num_male: int=12, num_female: int=7) -> tuple[list,list
     print("Finished Reading Data")
     return list_dataset, list_labels
 
-if __name__ == '__main__':
-    # example, label = read_data(f'{default_dataset_path}/Female0/training0/classe_0.dat')
+################################################### 以下是自定函数 ########################################################
 
-    data, data_shifted = read_single_data_special(default_dataset_path, 'Female0')  # 读取单个数据
+def read_single_data(path: str, subject: str) -> tuple[list,list]:
+    '''
+    读取单个测试目标的数据
+    '''
+    print("Reading Data")
+
+    labels = []
+    examples = []
+    for i in range(number_of_classes * 4):
+
+        datafile = f'{path}/{subject}'+'/training0/classe_%d.dat' % i  # 数据文件地址
+
+        data_read_from_file = np.fromfile(datafile, dtype=np.int16)
+        data_read_from_file = np.array(data_read_from_file, dtype=np.float32)
+
+        dataset_example = format_data_to_train(data_read_from_file)
+        examples.append(dataset_example)
+        labels.append((i % number_of_classes) + np.zeros(dataset_example.shape[0]))
+
+    examples, labels = shift_electrodes(examples, labels)
+
+    print("Finished Reading Data")
+    return examples, labels
+
+def read_single_data_detailed(path: str, subject: str) -> tuple[tuple[list,list],tuple[list,list]]:
+    '''
+    读取单个测试目标的数据
+    '''
+    print("Reading Data")
+
+    labels = []
+    examples = []
+    for i in range(number_of_classes * 4):
+
+        datafile = f'{path}/{subject}'+'/training0/classe_%d.dat' % i  # 数据文件地址
+
+        data_read_from_file = np.fromfile(datafile, dtype=np.int16)
+        data_read_from_file = np.array(data_read_from_file, dtype=np.float32)
+
+        dataset_example = format_data_to_train(data_read_from_file)
+        examples.append(dataset_example)
+        labels.append((i % number_of_classes) + np.zeros(dataset_example.shape[0]))
+
+    examples_shifted, labels_shifted = shift_electrodes(examples, labels)
+
+    print("Finished Reading Data")
+    return (examples, labels), (examples_shifted, labels_shifted)
+
+def Analysis_single_subject(data_original: tuple[list,list], data_shifted: tuple[list,list], subject: str, gesture: int,
+                            cycle: int, **kwargs) -> None:
+    gesture_idx = 7 * (cycle - 1) + (gesture - 1)  # 获取手势索引
 
     # 解压数据
-    example, label = data
+    example, label = data_original
     example_shifted, label_shifted = data_shifted
 
-    # seq_len
+    for i in range(len(example_shifted)):
+        example_shifted[i] = np.array(example_shifted[i], dtype=np.float32)  # 转换数据类型为数组, 以便后续处理
+
+    window_len = len(example[gesture_idx])  # 窗口长度
+    seq_len = window_len * number_of_vector_per_example  # 序列长度
+    data_rearranged = np.empty((number_of_canals, seq_len))  # 创建一个空数组用以存储重排数据
+    data_shifted_rearranged = np.empty((number_of_canals, seq_len))  # 创建一个空数组用以存储shifted后的重排数据
+
+    # 重排数据
+    for i in range(number_of_canals):
+        for j in range(number_of_vector_per_example):
+            data_rearranged[i, j * window_len:(j + 1) * window_len] = example[gesture_idx][:, 0, i, j]
+            data_shifted_rearranged[i, j * window_len:(j + 1) * window_len] = example_shifted[gesture_idx][:, 0, i, j]
+
+    # 画图模块
+    fig, axes = plt.subplots(number_of_canals, 2, sharex=True, figsize=(20, 10))  # 设置画布
+
+    fig.subplots_adjust(wspace=0.05, hspace=0.05)  # 设置子图布局
+
+    # 画图
+    for i in range(number_of_canals):
+        axes[i, 0].plot(data_rearranged[i], color=np.array([129,184,223])/255.)
+        axes[i, 1].plot(data_shifted_rearranged[i], color=np.array([254,129,125])/255.)
+
+    # 范围设置
+    axes[0, 0].set_xlim(0, seq_len)
+    axes[0, 1].set_xlim(0, seq_len)
+
+    # 标题设置
+    fig.suptitle(f'Gesture {gesture} in cycle {cycle} of {subject}', fontsize=20)  # 设置主标题
+
+    col_label = ['Original data', 'Shifted data']
+    row_label = [f'Channel {i}' for i in range(1, 9)]
+
+    for ax, col in zip(axes[0], col_label):  # 设置列标题
+        ax.set_title(col)
+
+    for ax, row in zip(axes[:, 0], row_label):  # 设置行标题
+        ax.set_ylabel(row, rotation=90, size='large')
+
+    plt.tight_layout()
+
+    # 保存图片
+    fmt_list = kwargs['fmt'] if 'fmt' in kwargs else ['png']  # 获取图片格式
+    filename = kwargs['filename'] if 'filename' in kwargs else f'{subject}_gesture-{gesture}_cycle-{cycle}'  # 获取文件名
+
+    if 'saving_dir' in kwargs:
+        for fmt in fmt_list:
+            plt.savefig(f"{kwargs['saving_dir']}/{filename}.{fmt}", format=fmt)
+    else:
+        return
+
+    return
+
+if __name__ == '__main__':
+    subject, gesture, cycle = ('Male0', 2, 2)  # 设置测试目标
+    # ges_idx = 7*(cycle-1) + (gesture-1)  # 获取手势索引
+    # print(f'The gesture index is: {ges_idx}.')
+
+    data, data_shifted = read_single_data_detailed(default_dataset_path, subject)  # 读取单个数据
+
+    for i in range(number_of_classes):
+        for j in range(number_of_cycles):
+            # 数据分析并画图
+            Analysis_single_subject(data, data_shifted, subject, gesture=i+1, cycle=j+1,
+                                    saving_dir=saving_dir_dict[working_loc])
+
+            plt.close()  # 关闭画布，释放内存
 
 
-    mode = 'single'
+    exit()  # 强制暂停执行
+
+
+    '''
 
     if mode == 'single':
 
@@ -273,3 +351,5 @@ if __name__ == '__main__':
 
     else:
         print('Invalid mode!')
+    
+    '''
